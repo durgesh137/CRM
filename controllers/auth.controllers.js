@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs')
 const User = require('../models/user.model');
+const jwt = require('jsonwebtoken');
+const authConfig = require('../configs/auth.config');
 
 exports.signup = async (req, res) => {
     try{
@@ -16,10 +18,15 @@ exports.signup = async (req, res) => {
             //password should be stored in encrypted form
             //use bcrypt js for that
             password : bcrypt.hashSync(req.body.password, 8),
-            userStatus : req.body.userStatus,
             userType : req.body.userType
         }
 
+        //setting user status
+        if(!userDetailsFromReq.userType || userDetailsFromReq.userType === 'CUSTOMER'){
+            userDetailsFromReq.userStatus = 'APPROVED'
+        }else{
+            userDetailsFromReq.userStatus = 'PENDING'
+        }
         /**
          * 2. saved user in database
          * => create method returns a Promise, a futurisitic event so use async-await here
@@ -53,4 +60,77 @@ exports.signup = async (req, res) => {
             message : 'Internal Server Error while saving user'
           }); 
     }
+}
+
+exports.signin = async (req, res) => {
+
+    try{
+        /**
+         * POST + /crm/api/v1/auth/signin
+         * 
+         */
+        const userIdFromReq = req.body.userId;
+        const passwordFromReq = req.body.password;
+
+        /**
+         * Find the user having specified Id
+         * findOne returns promise, so use async-await here
+         */
+        const userObtained  = await User.findOne({userId : userIdFromReq});
+
+        if(!userObtained){
+            return res.status(401).send({
+                message : "User with specified Id does not exist"
+            })
+        }
+
+        /**
+         * validate the password
+        */
+        const validPassword = bcrypt.compareSync(passwordFromReq, userObtained.password);
+
+        if(!validPassword){
+            return res.status(401).send({
+                message : "Incorrect password !"
+            })
+        }
+
+        /**
+         * Only approved user can login
+         */
+        if(userObtained.userStatus != 'APPROVED'){
+            return res.status(403).send({
+                message : "User is not approved for the login"
+            })
+        }
+
+        //both userId and password are valid, so the access token needs to be given as the response using jsonwebtoken, jwt
+        const token = jwt.sign({
+            id : userObtained.userId
+        },authConfig.SECRET,{
+            //specify time to live in seconds
+            expiresIn : 600
+        })
+
+        /**
+         * send response now
+         * => excluding password and include token
+        */
+        const postResponse = {
+            name : userObtained.name,
+            userId : userObtained.userId,
+            email : userObtained.email,
+            userStatus : userObtained.userStatus,
+            accessToken : token
+        }
+
+        //send response with access token
+        res.status(200).send(postResponse);
+    }catch(err){
+        console.log('Unable to login ', err.message);
+        res.status(500).send({
+            message : "Internal server error"
+        })
+    }
+
 }
