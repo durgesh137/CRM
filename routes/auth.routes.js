@@ -11,4 +11,11 @@ module.exports = (app) => {
      * POST + /crm/api/v1/auth/signup
      */
     app.post('/crm/api/v1/auth/signup', authController.signup);
+
+    /**
+     * 2. For signin
+     * POST + /crm/api/v1/auth/signin
+     */
+    app.post('/crm/api/v1/auth/signin', authController.signin);
+
 }
