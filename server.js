@@ -2,6 +2,10 @@ const express = require('express');
 const dbConfig = require('./configs/db.config');
 const serverConfig = require('./configs/server.config');
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const User = require('./models/user.model');
+
+
 const app = express();
 
 //For interconversion of JSON to JS and vice-versa
@@ -31,14 +35,31 @@ db.on('error', () => {
  */
 db.once('open', () => {
     console.log('Connected to the database');
+    //add one admin user
+    //init()
 })
 
+async function init(){
+
+    //to drop the collection
+    await User.collection.drop();
+
+    //create returns promise, so async-await
+    const adminUser = await User.create({
+        name : "Durgesh",
+        userId : "admin",
+        password : bcrypt.hashSync('welcome1', 8),
+        email : 'durgesh@gmail.com',
+        userType : "ADMIN"
+    })
+    console.log('ADMIN:\n',adminUser);
+}
 /**
  * plugging the route
  * => we are providing the path to the route file to the server 
  */
 require('./routes/auth.routes')(app);
-
+require('./routes/user.routes')(app);
 /**
  * server started
  */
